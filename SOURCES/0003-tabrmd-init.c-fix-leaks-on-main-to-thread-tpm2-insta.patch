@@ -1,0 +1,51 @@
+From 62ae28635ada2a74b526244e8ea69cef74c6c022 Mon Sep 17 00:00:00 2001
+From: William Roberts <william.c.roberts@intel.com>
+Date: Wed, 13 Jan 2021 13:52:06 -0600
+Subject: [PATCH 3/6] tabrmd-init.c: fix leaks on main to thread tpm2 instance
+
+Theirs a case where the Tpm2 object coming in from main to the thread
+fails setup and the cleanup function doesn't unref it. Move it to the
+main cleanup routine and use g_clear_object to be *clear* on whom owns
+the reference.
+
+Fixes leaks like:
+Indirect leak of 4176 byte(s) in 1 object(s) allocated from:
+    #0 0x7f652e71cdc6 in calloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10ddc6)
+    #1 0x7f652e25ad30 in g_malloc0 (/usr/lib/x86_64-linux-gnu/libglib-2.0.so.0+0x57d30)
+    #2 0x555ebb1a1c5f in sapi_context_init src/tpm2.c:162
+    #3 0x555ebb1a2fa8 in tpm2_new src/tpm2.c:438
+    #4 0x555ebb19d665 in init_thread_func src/tabrmd-init.c:178
+    #5 0x555ebb19bede in init_thread_func_tpm2_init_fail test/tabrmd-init_unit.c:199
+    #6 0x7f652e6074e0  (/usr/lib/x86_64-linux-gnu/libcmocka.so.0+0x54e0)
+
+Signed-off-by: William Roberts <william.c.roberts@intel.com>
+---
+ src/tabrmd-init.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/tabrmd-init.c b/src/tabrmd-init.c
+index 58e0103..866c852 100644
+--- a/src/tabrmd-init.c
++++ b/src/tabrmd-init.c
+@@ -99,6 +99,9 @@ gmain_data_cleanup (gmain_data_t *data)
+     if (data->loop != NULL) {
+         main_loop_quit (data->loop);
+     }
++    if (data->tpm2) {
++        g_clear_object (&data->tpm2);
++    }
+ 
+     tabrmd_options_free(&data->options);
+ }
+@@ -208,7 +211,7 @@ init_thread_func (gpointer user_data)
+     g_clear_object (&session_list);
+     data->response_sink = response_sink_new ();
+     g_object_unref (command_attrs);
+-    g_object_unref (data->tpm2);
++    g_clear_object (&data->tpm2);
+     /*
+      * Wire up the TPM command processing pipeline. TPM command buffers
+      * flow from the CommandSource, to the Tab then finally back to the
+-- 
+2.34.3
+

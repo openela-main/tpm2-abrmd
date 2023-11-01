@@ -1,0 +1,40 @@
+From a645f8c656b47568072351f4bfa58960016fbbac Mon Sep 17 00:00:00 2001
+From: Nicolas Iooss <nicolas.iooss@ledger.fr>
+Date: Mon, 27 Sep 2021 16:46:42 +0200
+Subject: [PATCH 6/6] tcti: initialize GError to NULL
+
+When an error happens in `tcti_tabrmd_read`, Glib reports:
+
+    (process:905338): GLib-WARNING **: 06:59:08.971: GError set over the
+    top of a previous GError or uninitialized memory.
+    This indicates a bug in someone's code. You must ensure an error is
+    NULL before it's set.
+    The overwriting error message was: Error receiving data: Connection
+    reset by peer
+
+This warning was reported on
+https://github.com/tpm2-software/tpm2-pkcs11/issues/705
+
+Fix the warning by initializing `error` correctly.
+
+Signed-off-by: Nicolas Iooss <nicolas.iooss@ledger.fr>
+---
+ src/tcti-tabrmd.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/tcti-tabrmd.c b/src/tcti-tabrmd.c
+index d96709e..d0ab74d 100644
+--- a/src/tcti-tabrmd.c
++++ b/src/tcti-tabrmd.c
+@@ -187,7 +187,7 @@ tcti_tabrmd_read (TSS2_TCTI_TABRMD_CONTEXT *ctx,
+                   size_t size,
+                   int32_t timeout)
+ {
+-    GError *error;
++    GError *error = NULL;
+     ssize_t num_read;
+     int ret;
+ 
+-- 
+2.34.3
+

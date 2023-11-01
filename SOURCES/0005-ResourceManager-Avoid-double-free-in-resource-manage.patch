@@ -1,0 +1,30 @@
+From a97e07d5a5947f5749e4ea25d0f538eeee8997bb Mon Sep 17 00:00:00 2001
+From: Jerry Snitselaar <jsnitsel@redhat.com>
+Date: Mon, 23 Nov 2020 11:45:31 -0700
+Subject: [PATCH 5/6] ResourceManager: Avoid double free in resource-manager.c
+
+Clean up potential double free found by coverity in
+resource_manager_load_session_from_handle. If flush_session has been
+called, don't call session_list_remove which is already called in
+flush_session.
+
+Signed-off-by: Jerry Snitselaar <jsnitsel@redhat.com>
+---
+ src/resource-manager.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/resource-manager.c b/src/resource-manager.c
+index 050436f..556184b 100644
+--- a/src/resource-manager.c
++++ b/src/resource-manager.c
+@@ -239,6 +239,7 @@ resource_manager_load_session_from_handle (ResourceManager *resmgr,
+         rc = tpm2_response_get_code (response);
+         if (rc != TSS2_RC_SUCCESS) {
+             flush_session (resmgr, session_entry);
++            goto out;
+         }
+     }
+     if (will_flush) {
+-- 
+2.34.3
+

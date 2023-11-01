@@ -1,0 +1,49 @@
+From ec7116d0e4de535a90c1dc5edabe821f04a0f8e0 Mon Sep 17 00:00:00 2001
+From: William Roberts <william.c.roberts@intel.com>
+Date: Wed, 13 Jan 2021 12:21:47 -0600
+Subject: [PATCH 2/6] resource-manager: rm ref count inc of handle_entry
+
+Per:
+  - https://developer.gnome.org/gobject/stable/gobject-memory.html
+
+g_object_new sets the ref count to 1, so their is no need to bump it
+again, we already have ownership.
+
+Fixes leaks like:
+Direct leak of 10480 byte(s) in 2 object(s) allocated from:
+    #0 0x7f1aa88aabc8 in malloc (/usr/lib/x86_64-linux-gnu/libasan.so.5+0x10dbc8)
+    #1 0x7f1aa848acd8 in g_malloc (/usr/lib/x86_64-linux-gnu/libglib-2.0.so.0+0x57cd8)
+    #2 0x7f1aa84a32c5 in g_slice_alloc (/usr/lib/x86_64-linux-gnu/libglib-2.0.so.0+0x702c5)
+    #3 0x7f1aa84a38ed in g_slice_alloc0 (/usr/lib/x86_64-linux-gnu/libglib-2.0.so.0+0x708ed)
+    #4 0x7f1aa85970cf in g_type_create_instance (/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0+0x3b0cf)
+    #5 0x7f1aa857634c  (/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0+0x1a34c)
+    #6 0x7f1aa8578377 in g_object_new_valist (/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0+0x1c377)
+    #7 0x7f1aa85786cc in g_object_new (/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0+0x1c6cc)
+    #8 0x561e13d667d3 in handle_map_entry_new src/handle-map-entry.c:138
+    #9 0x561e13d540d3 in create_context_mapping_transient src/resource-manager.c:1160
+    #10 0x561e13d547b1 in resource_manager_create_context_mapping src/resource-manager.c:1261
+    #11 0x561e13d54ec8 in resource_manager_process_tpm2_command src/resource-manager.c:1359
+    #12 0x561e13d55365 in resource_manager_thread src/resource-manager.c:1424
+    #13 0x7f1aa8384608 in start_thread /build/glibc-ZN95T4/glibc-2.31/nptl/pthread_create.c:477
+    #14 0x7f1aa82ab292 in __clone (/lib/x86_64-linux-gnu/libc.so.6+0x122292)
+
+Signed-off-by: William Roberts <william.c.roberts@intel.com>
+---
+ src/resource-manager.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/resource-manager.c b/src/resource-manager.c
+index 904f683..050436f 100644
+--- a/src/resource-manager.c
++++ b/src/resource-manager.c
+@@ -1167,7 +1167,6 @@ create_context_mapping_transient (ResourceManager  *resmgr,
+     handle_map_insert (handle_map, vhandle, handle_entry);
+     g_object_unref (handle_map);
+     tpm2_response_set_handle (response, vhandle);
+-    g_object_ref (handle_entry);
+ }
+ /*
+  * This function after a Tpm2Command is sent to the TPM and:
+-- 
+2.34.3
+
