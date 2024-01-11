@@ -1,0 +1,28 @@
+From 545287019c1b9689c92900330be058b5ab9cf5d6 Mon Sep 17 00:00:00 2001
+From: William Roberts <william.c.roberts@intel.com>
+Date: Wed, 13 Jan 2021 15:11:42 -0600
+Subject: [PATCH 4/6] init_thread_func: fix deadlock
+
+The caller locks the mutex and never releases on the error path, only
+the success path.
+
+Signed-off-by: William Roberts <william.c.roberts@intel.com>
+---
+ src/tabrmd-init.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/tabrmd-init.c b/src/tabrmd-init.c
+index 866c852..ea71155 100644
+--- a/src/tabrmd-init.c
++++ b/src/tabrmd-init.c
+@@ -249,6 +249,7 @@ init_thread_func (gpointer user_data)
+     return GINT_TO_POINTER (0);
+ 
+ err_out:
++    g_mutex_unlock (&data->init_mutex);
+     g_debug ("%s: calling gmain_data_cleanup", __func__);
+     gmain_data_cleanup (data);
+     return GINT_TO_POINTER (ret);
+-- 
+2.34.3
+
